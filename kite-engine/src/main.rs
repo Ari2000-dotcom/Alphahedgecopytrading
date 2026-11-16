@@ -3,6 +3,8 @@
 //! Default is PAPER mode (no real orders). Live trading needs KITE_LIVE=1 plus
 //! KITE_API_KEY and KITE_ACCESS_TOKEN, so it can never start by accident.
 
+use kite_engine::accounts::Accounts;
+use kite_engine::login::BrokerUrls;
 use kite_engine::api::{router, AppState};
 use kite_engine::leg::run_reconciler;
 use kite_engine::ws::{run_order_stream, WsConfig};
@@ -72,7 +74,20 @@ async fn main() {
         tokio::spawn(run_order_stream(cfg, legs.clone(), stop_rx.clone()));
     }
 
-    let state = AppState { engine, legs, token: Arc::new(token), postback_secret, paper };
+    // Accounts: secrets are sealed with ACCOUNTS_KEY (or, if unset, the engine
+    // token). Lose the key and the file cannot be opened; the accounts must be re-entered.
+    let master = env("ACCOUNTS_KEY").unwrap_or_else(|| token.clone());
+    let file = std::path::PathBuf::from(env("ACCOUNTS_FILE").unwrap_or_else(|| "accounts.enc".into()));
+    let account_opts = KiteOptions {
+        base_url: None,
+        local_ip: env("KITE_LOCAL_IP").and_then(|s| s.parse::<IpAddr>().ok()),
+        proxy: env("KITE_PROXY"),
+    };
+    let accounts = Accounts::open(&master, Some(file.clone()), BrokerUrls::default(), account_opts)
+        .unwrap_or_else(|e| die(format!("cannot open {}: {e}", file.display())));
+    tracing::info!("accounts file: {}", file.display());
+
+    let state = AppState { engine, legs, token: Arc::new(token), postback_secret, paper, accounts };
     let bind: SocketAddr = env("ENGINE_BIND")
         .unwrap_or_else(|| "127.0.0.1:8088".into())
         .parse()

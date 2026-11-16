@@ -417,6 +417,7 @@ fn app(secret: Option<&str>) -> (axum::Router, Rig) {
         token: Arc::new("test-token-0123456789".into()),
         postback_secret: secret.map(|s| Arc::new(s.to_string())),
         paper: Some(r.paper.clone()),
+        accounts: kite_engine::accounts::Accounts::open("test-master", None, Default::default(), Default::default()).unwrap(),
     };
     (router(state), r)
 }

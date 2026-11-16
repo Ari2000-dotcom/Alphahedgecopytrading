@@ -57,6 +57,7 @@ export function ConfirmHost() {
   return (
     <div class="scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}>
       <div ref={box} class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="cf-title" aria-describedby="cf-body" onKeyDown={onKey}>
+        <div class="dcore">
         <h2 id="cf-title">{o.title}</h2>
         <div id="cf-body" class="dbody">{o.body.map((p) => <p key={p}>{p}</p>)}</div>
         <div class="dact">
@@ -65,6 +66,7 @@ export function ConfirmHost() {
             class={"btn " + (o.danger ? "danger" : "primary")}
             onClick={() => { const run = o.onConfirm; close(); run(); }}
           >{o.confirmLabel}</button>
+        </div>
         </div>
       </div>
     </div>

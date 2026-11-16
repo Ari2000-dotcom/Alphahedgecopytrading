@@ -11,7 +11,7 @@ npx tauri build --no-bundle   # release exe: src-tauri/target/release/alphahedge
 npm run build            # typecheck + front end only
 ```
 
-The Accounts screen shows **sample data** until the engine has an accounts store. The header shows the engine's state (`/health`, every 5 s while the window is visible) and PAPER or LIVE from the engine's broker.
+The Accounts screen reads and saves accounts through the engine (`/accounts`). The host needs the engine token: set `ENGINE_TOKEN`, or put it as the first line of `%APPDATA%\AlphaHedge Desk\engine-token.txt`. "Save and sign in" saves the details and signs the account in at once. The header shows the engine's state (`/health`, every 5 s while the window is visible) and PAPER or LIVE from the engine's broker.
 
 ## Why it is light
 
@@ -28,4 +28,4 @@ The Accounts screen shows **sample data** until the engine has an accounts store
 
 ## Not built yet
 
-Trade, Orders, Positions, Risk and Alerts screens; the engine's accounts store and sign-in test; the token in the Windows credential store; the kill switch (left out on purpose until it works: a button that does nothing is worse than none).
+Trade, Orders, Positions, Risk and Alerts screens; the token in the Windows credential store; the kill switch (left out on purpose until it works: a button that does nothing is worse than none).
