@@ -1,0 +1,24 @@
+[package]
+name = "alphahedge-desk"
+version = "0.1.0"
+edition = "2021"
+description = "AlphaHedge Desk: a small, fast desktop screen for the kite-engine."
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# The host talks to the engine, so tokens never reach the web page and the
+# page needs no CORS. Rustls only: no OpenSSL, no extra runtime.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+# Smallest memory and fastest start: the host does very little, so favour size.
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
