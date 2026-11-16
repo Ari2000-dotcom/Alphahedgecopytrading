@@ -5,6 +5,7 @@
 //!  - `/postback/zerodha`, which Zerodha calls and which is checked by the
 //!    postback checksum instead (only enabled when the API secret is set).
 
+use crate::accounts::{Accounts, Upsert};
 use crate::engine::Engine;
 use crate::error::Error;
 use crate::leg::{LegManager, LegRequest};
@@ -31,6 +32,7 @@ pub struct AppState {
     pub postback_secret: Option<Arc<String>>,
     /// Present only in paper mode: lets you fill orders by hand.
     pub paper: Option<Arc<PaperBroker>>,
+    pub accounts: Arc<Accounts>,
 }
 
 pub fn router(state: AppState) -> Router {
@@ -44,6 +46,13 @@ pub fn router(state: AppState) -> Router {
         .route("/legs/:id", get(get_leg))
         .route("/legs/:id/exit", post(exit_leg))
         .route("/legs/:id/sl", put(set_sl))
+        .route("/accounts", get(list_accounts))
+        .route("/accounts/login-all", post(login_all))
+        .route("/accounts/funds", post(refresh_funds))
+        .route("/accounts/:id/funds", post(refresh_one_funds))
+        .route("/accounts/:id", get(get_account).put(put_account).delete(delete_account))
+        .route("/accounts/:id/login", post(login_account))
+        .route("/accounts/:id/secrets", post(account_secrets))
         .route("/paper/fill", post(paper_fill))
         .route_layer(middleware::from_fn_with_state(state.clone(), require_token));
     Router::new()
@@ -168,6 +177,53 @@ struct SetSl {
 async fn set_sl(State(st): State<AppState>, Path(id): Path<String>, Json(b): Json<SetSl>) -> ApiResult {
     let leg = st.legs.set_sl_percent(&id, b.percent).await?;
     Ok(Json(serde_json::to_value(leg).map_err(|e| Error::BadResponse(e.to_string()))?))
+}
+
+// ---------------------------------------------------------------- accounts
+
+async fn list_accounts(State(st): State<AppState>) -> ApiResult {
+    Ok(Json(json!({"accounts": st.accounts.list()})))
+}
+
+/// The saved secrets of one account, so the desk can show them when asked.
+/// A POST, so nothing caches it and a stray link cannot fetch it.
+async fn account_secrets(State(st): State<AppState>, Path(id): Path<String>) -> ApiResult {
+    Ok(Json(json!({"secrets": st.accounts.secrets(&id)?})))
+}
+
+async fn get_account(State(st): State<AppState>, Path(id): Path<String>) -> ApiResult {
+    Ok(Json(st.accounts.get(&id).ok_or_else(|| Error::NotFound(id))?))
+}
+
+/// Creates or updates an account. Secrets left blank keep their saved value.
+async fn put_account(State(st): State<AppState>, Path(id): Path<String>, Json(b): Json<Upsert>) -> ApiResult {
+    Ok(Json(st.accounts.upsert(&id, b)?))
+}
+
+async fn delete_account(State(st): State<AppState>, Path(id): Path<String>) -> ApiResult {
+    st.accounts.remove(&id)?;
+    Ok(Json(json!({"ok": true})))
+}
+
+/// Signs in every account marked auto-login, all at once. Always answers 200
+/// with one result per account, so one bad password does not hide the others.
+async fn login_all(State(st): State<AppState>) -> ApiResult {
+    Ok(Json(json!({"results": st.accounts.login_all().await})))
+}
+
+/// Reads every signed-in account's margin again, all at once.
+async fn refresh_funds(State(st): State<AppState>) -> ApiResult {
+    Ok(Json(json!({"accounts": st.accounts.refresh_funds_all().await})))
+}
+
+async fn refresh_one_funds(State(st): State<AppState>, Path(id): Path<String>) -> ApiResult {
+    Ok(Json(st.accounts.refresh_funds(&id).await?))
+}
+
+/// Signs the account in now and answers with its state. On failure the error
+/// says why (wrong password, bad TOTP secret, app not authorised...).
+async fn login_account(State(st): State<AppState>, Path(id): Path<String>) -> ApiResult {
+    Ok(Json(st.accounts.login(&id).await?))
 }
 
 // ---------------------------------------------------------------- postback

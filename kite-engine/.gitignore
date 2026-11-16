@@ -1,2 +1,4 @@
 /target
 .env
+accounts.enc
+accounts.tmp

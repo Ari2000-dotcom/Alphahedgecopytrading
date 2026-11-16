@@ -16,7 +16,7 @@ fn app() -> (axum::Router, Arc<PaperBroker>) {
     let paper = Arc::new(PaperBroker::new());
     let engine = Arc::new(Engine::new(paper.clone(), RiskLimits { max_quantity: 1800 }));
     let legs = LegManager::new(engine.clone(), ManagerConfig { retry_delays: vec![], check_delays: vec![] });
-    let state = AppState { engine, legs, token: Arc::new(TOKEN.into()), postback_secret: None, paper: Some(paper.clone()) };
+    let state = AppState { engine, legs, token: Arc::new(TOKEN.into()), postback_secret: None, paper: Some(paper.clone()), accounts: kite_engine::accounts::Accounts::open("test-master", None, Default::default(), Default::default()).unwrap() };
     (router(state), paper)
 }
 
@@ -54,6 +54,10 @@ async fn health_is_open_but_everything_else_needs_the_token() {
     assert_eq!(call(&a, "GET", "/orders", Some("wrong"), None).await.0, StatusCode::UNAUTHORIZED);
     assert_eq!(call(&a, "POST", "/orders", None, Some(order(json!({})))).await.0, StatusCode::UNAUTHORIZED);
     assert_eq!(call(&a, "GET", "/orders", Some(TOKEN), None).await.0, StatusCode::OK);
+    // Saved sign-in values are behind the token like everything else.
+    assert_eq!(call(&a, "POST", "/accounts/a1/secrets", None, None).await.0, StatusCode::UNAUTHORIZED);
+    assert_eq!(call(&a, "POST", "/accounts/a1/secrets", Some("wrong"), None).await.0, StatusCode::UNAUTHORIZED);
+    assert_eq!(call(&a, "POST", "/accounts/a1/secrets", Some(TOKEN), None).await.0, StatusCode::NOT_FOUND);
 }
 
 #[tokio::test]
